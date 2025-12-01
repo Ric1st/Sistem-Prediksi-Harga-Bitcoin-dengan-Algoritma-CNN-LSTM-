@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,112 +8,205 @@
     <style>
         body {
             background: #0d1117;
-            color: #fff;
-            font-family: 'Consolas', monospace;
+            color: #c9d1d9;
+            font-family: 'Segoe UI', sans-serif;
             margin: 0;
             padding: 20px;
         }
-
         .card {
-            background: #161b14;
+            background: #161b22;
+            padding: 25px;
+            border-radius: 16px;
+            max-width: 1100px;
+            margin: 20px auto;
+            box-shadow: 0 8px 32px rgba(0,255,150,0.1);
+        }
+        h1 { text-align: center; color: #00ff9d; margin: 0 0 20px; font-size: 2em; }
+        .price { font-size: 3.5em; font-weight: bold; text-align: center; margin: 15px 0; color: #00ff9d; }
+        .pred { font-size: 1.8em; color: #888; text-align: center; margin: 10px 0; }
+        .signal {
+            font-size: 2.8em;
             padding: 20px;
             border-radius: 16px;
-            max-width: 1000px;
-            margin: 20px auto;
-            box-shadow: 0 8px 32px rgba(0, 255, 150, 0.1);
-        }
-
-        .price {
-            font-size: 3em;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-
-        .signal {
-            font-size: 2.5em;
-            padding: 15px;
-            border-radius: 12px;
-            margin: 20px 0;
             text-align: center;
+            margin: 25px 0;
+            font-weight: bold;
+            transition: all 0.4s;
         }
-
-        .buy {
-            background: #000 8px 32px rgba(0, 255, 100, 0.3);
-            color: #00ff9d;
+        .buy  { background: rgba(0,255,157,0.2); color: #00ff9d; border: 2px solid #00ff9d; }
+        .sell { background: rgba(255,51,102,0.2); color: #ff3366; border: 2px solid #ff3366; }
+        .hold { background: rgba(255,255,0.08); color: #aaa; border: 2px solid #444; }
+        select {
+            padding: 12px 16px;
+            font-size: 1.1em;
+            background: #21262d;
+            color: white;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            margin: 20px auto;
+            display: block;
+            width: 200px;
         }
-
-        .sell {
-            background: rgba(255, 0, 100, 0.3);
-            color: #ff3366;
-        }
-
-        .hold {
-            background: rgba(255, 255, 255, 0.1);
-            color: #aaa;
-        }
-
-        canvas {
+        #chart-container {
+            position: relative;
+            height: 560px;
             background: #161b22;
             border-radius: 12px;
             padding: 15px;
+            margin-top: 10px;
+            overflow: hidden;
         }
+        small { opacity: 0.7; }
     </style>
 </head>
-
 <body>
     <div class="card">
-        <h1 style="text-align:center; color:#00ff9d">BTC/USDT Real-Time Prediction</h1>
+        <h1>BTC/USDT Real-Time Prediction</h1>
+
         <div style="text-align:center">
-            <div>Harga Saat Ini</div>
+            <div style="font-size:1.4em; opacity:0.8">Harga Saat Ini</div>
             <div class="price" id="current">$--,---</div>
 
-            <div style="font-size:1.3em; margin:20px 0">
-                Prediksi 1 Menit Lagi → <span id="predicted" style="color:#888">$--,---</span>
+            <div class="pred">
+                Prediksi 1 Menit → <span id="predicted">$--,---</span>
+                <span id="change" style="color:#00ff9d">+0</span>
+                (<span id="pct" style="color:#00ff9d">0.00%</span>)
             </div>
 
-            <div class="signal" id="signal">LOADING...</div>
-
-            <div style="margin:15px 0; opacity:0.8">
-                Perubahan: <span id="change">+0</span>
-                (<span id="pct">0.00%</span>)
-                | Update: <span id="time">--:--:--</span>
-            </div>
+            <div class="signal hold" id="signal">LOADING...</div>
+            <small>Update terakhir: <span id="time">--:--:--</span></small>
         </div>
 
-        <canvas id="chart"></canvas>
+        <select id="tf" onchange="loadChart()">
+            <option value="1m">1 Menit</option>
+            <option value="5m">5 Menit</option>
+            <option value="15m">15 Menit</option>
+            <option value="1h" selected>1 Jam</option>
+            <option value="4h">4 Jam</option>
+            <option value="1d">Harian</option>
+            <option value="1w">Mingguan</option>
+            <option value="1M">Bulanan</option>
+        </select>
+
+        <div id="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
     </div>
 
     <script>
         const ctx = document.getElementById('chart').getContext('2d');
         const chart = new Chart(ctx, {
             type: 'line',
-            data: { labels: [], datasets: [{ label: 'Harga Aktual', data: [], borderColor: '#00ff9d', tension: 0.3, fill: false }] },
-            options: { responsive: true, scales: { x: { ticks: { color: '#aaa' } }, y: { ticks: { color: '#aaa' } } } }
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Harga Aktual (Close)',
+                        data: [],
+                        borderColor: '#00ff9d',
+                        backgroundColor: 'rgba(0,255,157,0.05)',
+                        tension: 0.25,
+                        pointRadius: 0,
+                        borderWidth: 2.5
+                    },
+                    {
+                        label: 'Prediksi 10 Candle ke Depan',
+                        data: [],
+                        borderColor: '#ff3366',
+                        backgroundColor: 'rgba(255,51,102,0.15)',
+                        borderDash: [10,6],
+                        tension: 0.3,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#ff3366',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }
+                ]
+            },
+            options: {
+                animation: false,
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: {
+                        ticks: { color: '#8b949e', maxTicksLimit: 12 },
+                        grid: { color: '#30363d' }
+                    },
+                    y: {
+                        ticks: { color: '#8b949e' },
+                        grid: { color: '#30363d' }
+                    }
+                },
+                plugins: {
+                    legend: { labels: { color: '#c9d1d9', font: { size: 13 } } },
+                    tooltip: { backgroundColor: '#21262d', titleColor: '#c9d1d9', bodyColor: '#c9d1d9' }
+                }
+            }
         });
 
-        function updateAll() {
-            fetch('/live').then(r => r.json()).then(d => {
-                document.getElementById("current").innerText = "$" + d.current.toLocaleString();
-                document.getElementById("predicted").innerText = "$" + d.predicted.toLocaleString();
-                document.getElementById("change").innerText = (d.change > 0 ? "+" : "") + d.change.toLocaleString();
-                document.getElementById("pct").innerText = (d.pct > 0 ? "+" : "") + d.pct + "%";
-                document.getElementById("time").innerText = d.time;
+        function updateLive() {
+            fetch('/live')
+                .then(r => r.json())
+                .then(d => {
+                    document.getElementById("current").textContent = "$" + Number(d.current).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById("predicted").textContent = "$" + Number(d.predicted).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    document.getElementById("change").textContent = (d.change > 0 ? "+" : "") + d.change.toFixed(2);
+                    document.getElementById("pct").textContent = (d.pct > 0 ? "+" : "") + d.pct.toFixed(2) + "%";
+                    document.getElementById("time").textContent = d.time;
 
-                const sig = document.getElementById("signal");
-                sig.innerText = d.signal;
-                sig.className = "signal " + (d.color === "green" ? "buy" : d.color === "red" ? "sell" : "hold");
-            });
-
-            fetch('/chart_data').then(r => r.json()).then(data => {
-                chart.data.labels = data.map(x => x.time);
-                chart.data.datasets[0].data = data.map(x => x.price);
-                chart.update('none');
-            });
+                    const sig = document.getElementById("signal");
+                    sig.textContent = d.signal;
+                    sig.className = "signal " + (d.signal === "BUY" ? "buy" : d.signal === "SELL" ? "sell" : "hold");
+                })
+                .catch(() => {});
         }
 
-        updateAll();
-        setInterval(updateAll, 10000); // update tiap 10 detik (tapi prediksi tetap tiap menit)
+        function loadChart() {
+            const tf = document.getElementById("tf").value;
+
+            fetch(`/chart_data/${tf}`)
+                .then(r => r.json())
+                .then(data => {
+                    // Reset total
+                    chart.data.labels = [];
+                    chart.data.datasets[0].data = [];
+                    chart.data.datasets[1].data = [];
+
+                    // Ambil maksimal 100 candle terakhir
+                    const actual = data.actual.slice(-100);
+                    const times = actual.map(a => a.time);
+                    const prices = actual.map(a => a.close);
+
+                    chart.data.labels = times;
+                    chart.data.datasets[0].data = prices;
+
+                    // Prediksi 10 candle ke depan
+                    if (data.future && data.future.length > 0) {
+                        const futureTimes = data.future.map(f => f.time);
+                        const futurePrices = data.future.map(f => f.price);
+
+                        chart.data.labels = chart.data.labels.concat(futureTimes);
+                        chart.data.datasets[1].data = futurePrices.map((p, i) => ({
+                            x: futureTimes[i],
+                            y: p
+                        }));
+                    }
+
+                    chart.update('none');
+                })
+                .catch(err => console.error("Gagal load chart:", err));
+        }
+
+        // Jalankan saat pertama kali buka
+        updateLive();
+        loadChart();
+
+        // Update tiap 60 detik
+        setInterval(() => {
+            updateLive();
+            loadChart();
+        }, 60000);
     </script>
 </body>
-
 </html>
