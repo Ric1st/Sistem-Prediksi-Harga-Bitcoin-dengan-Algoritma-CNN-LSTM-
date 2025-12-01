@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTC/USDT Live Prediction</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background: #0d1117;
+            color: #fff;
+            font-family: 'Consolas', monospace;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .card {
+            background: #161b14;
+            padding: 20px;
+            border-radius: 16px;
+            max-width: 1000px;
+            margin: 20px auto;
+            box-shadow: 0 8px 32px rgba(0, 255, 150, 0.1);
+        }
+
+        .price {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .signal {
+            font-size: 2.5em;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .buy {
+            background: #000 8px 32px rgba(0, 255, 100, 0.3);
+            color: #00ff9d;
+        }
+
+        .sell {
+            background: rgba(255, 0, 100, 0.3);
+            color: #ff3366;
+        }
+
+        .hold {
+            background: rgba(255, 255, 255, 0.1);
+            color: #aaa;
+        }
+
+        canvas {
+            background: #161b22;
+            border-radius: 12px;
+            padding: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h1 style="text-align:center; color:#00ff9d">BTC/USDT Real-Time Prediction</h1>
+        <div style="text-align:center">
+            <div>Harga Saat Ini</div>
+            <div class="price" id="current">$--,---</div>
+
+            <div style="font-size:1.3em; margin:20px 0">
+                Prediksi 1 Menit Lagi → <span id="predicted" style="color:#888">$--,---</span>
+            </div>
+
+            <div class="signal" id="signal">LOADING...</div>
+
+            <div style="margin:15px 0; opacity:0.8">
+                Perubahan: <span id="change">+0</span>
+                (<span id="pct">0.00%</span>)
+                | Update: <span id="time">--:--:--</span>
+            </div>
+        </div>
+
+        <canvas id="chart"></canvas>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('chart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Harga Aktual', data: [], borderColor: '#00ff9d', tension: 0.3, fill: false }] },
+            options: { responsive: true, scales: { x: { ticks: { color: '#aaa' } }, y: { ticks: { color: '#aaa' } } } }
+        });
+
+        function updateAll() {
+            fetch('/live').then(r => r.json()).then(d => {
+                document.getElementById("current").innerText = "$" + d.current.toLocaleString();
+                document.getElementById("predicted").innerText = "$" + d.predicted.toLocaleString();
+                document.getElementById("change").innerText = (d.change > 0 ? "+" : "") + d.change.toLocaleString();
+                document.getElementById("pct").innerText = (d.pct > 0 ? "+" : "") + d.pct + "%";
+                document.getElementById("time").innerText = d.time;
+
+                const sig = document.getElementById("signal");
+                sig.innerText = d.signal;
+                sig.className = "signal " + (d.color === "green" ? "buy" : d.color === "red" ? "sell" : "hold");
+            });
+
+            fetch('/chart_data').then(r => r.json()).then(data => {
+                chart.data.labels = data.map(x => x.time);
+                chart.data.datasets[0].data = data.map(x => x.price);
+                chart.update('none');
+            });
+        }
+
+        updateAll();
+        setInterval(updateAll, 10000); // update tiap 10 detik (tapi prediksi tetap tiap menit)
+    </script>
+</body>
+
+</html>

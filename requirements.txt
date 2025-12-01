@@ -1,0 +1,10 @@
+# Core Data Science
+pandas
+numpy
+scikit-learn
+# Deep Learning (Model)
+tensorflow
+h5py
+# Web App (Flask)
+Flask
+requests
